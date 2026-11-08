@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, useInView, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, Check, Github, Linkedin, Mail, Download, ShieldCheck, Cpu, Database, Terminal, Code, Sparkles, Server, User, Award, ExternalLink } from 'lucide-react';
 
@@ -219,7 +219,7 @@ export default function App() {
       title: "java",
       issuer: "Scaler Topics ",
       date: "Issued: 26/Aug/2026",
-      imageUrl: "", // Example: "https://images.example.com/cert1.png" (Leave "" for default award icon)
+      imageUrl: "https://moonshot.scaler.com/s/image/sl/4YShLG1JJz?scope=body", // Direct image URL resolved from Scaler share link
       credentialUrl: "https://moonshot.scaler.com/s/sl/4YShLG1JJz" // Replace with your actual certificate verification URL
     },
     {
@@ -227,7 +227,7 @@ export default function App() {
       title: " SQL/MySql/ Database",
       issuer: "Scaler Topics",
       date: "Issued: 15/Aug/2026",
-      imageUrl: "", // Example: "https://images.example.com/cert2.png"
+      imageUrl: "https://moonshot.scaler.com/s/image/sl/F37uatU9B3?scope=body", // Direct image URL resolved from Scaler share link
       credentialUrl: "https://moonshot.scaler.com/s/sl/F37uatU9B3" // Replace with your actual certificate verification URL
     },
     {
@@ -235,10 +235,51 @@ export default function App() {
       title: "python",
       issuer: "Scaler Topics",
       date: "Issued: 16/Nov/2025",
-      imageUrl: "", // Example: "https://images.example.com/cert3.png"
+      imageUrl: "https://moonshot.scaler.com/s/image/sl/iqtSe1EMLi?scope=body", // Direct image URL resolved from Scaler share link
       credentialUrl: "https://moonshot.scaler.com/s/sl/iqtSe1EMLi" // Replace with your actual certificate verification URL
-    }
+    },
+
+    {
+      id: 4,
+      title: "AWS Lambda Foundations",
+      issuer: "AWS Trining & Certification ",
+      date: "Issued: 07/Nov/2026",
+      imageUrl: "blob:https://skillbuilder.aws/dad81b4e-7b38-4643-93c9-4e91b7fedd19", // Replace with a public image URL (e.g. Google Drive share link or hosted image URL)
+      credentialUrl: "blob:https://skillbuilder.aws/dad81b4e-7b38-4643-93c9-4e91b7fedd19" // Replace with your actual certificate verification URL
+    },
   ];
+
+  // Automatically converts known certificate share page links (Scaler, Google Drive, etc.) into direct image URLs
+  const resolveCertificateImageUrl = (rawUrl: string, fallbackCredentialUrl?: string): string => {
+    const candidate = (rawUrl || fallbackCredentialUrl || '').trim();
+    if (!candidate) return '';
+
+    // Cross-origin blob: URLs (e.g. blob:https://skillbuilder.aws/...) only exist in that tab's memory
+    if (candidate.startsWith('blob:') && !candidate.startsWith(`blob:${window.location.origin}`)) {
+      return '';
+    }
+
+    // Convert Scaler share page URL (https://moonshot.scaler.com/s/sl/<ID>) to direct image URL
+    const scalerMatch = candidate.match(/https?:\/\/moonshot\.scaler\.com\/s\/sl\/([A-Za-z0-9_-]+)/);
+    if (scalerMatch) {
+      return `https://moonshot.scaler.com/s/image/sl/${scalerMatch[1]}?scope=body`;
+    }
+
+    // Convert Google Drive file share URL (https://drive.google.com/file/d/<ID>/view) to direct image URL
+    const driveFileMatch = candidate.match(/https?:\/\/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/);
+    if (driveFileMatch) {
+      return `https://lh3.googleusercontent.com/d/${driveFileMatch[1]}`;
+    }
+
+    const driveOpenMatch = candidate.match(/https?:\/\/drive\.google\.com\/open\?id=([A-Za-z0-9_-]+)/);
+    if (driveOpenMatch) {
+      return `https://lh3.googleusercontent.com/d/${driveOpenMatch[1]}`;
+    }
+
+    return candidate;
+  };
+
+  const [failedCertImages, setFailedCertImages] = useState<Record<string, boolean>>({});
 
   // Scroll ref for project cards scroll-linked animation
   const projectsRef = useRef<HTMLDivElement>(null);
@@ -596,42 +637,53 @@ export default function App() {
             }}
             className="flex gap-6 shrink-0 pr-6"
           >
-            {[...certificationsData, ...certificationsData].map((cert, index) => (
-              <div
-                key={`${cert.id}-${index}`}
-                className="w-[320px] sm:w-[360px] bg-[#101010] border border-white/10 rounded-3xl p-6 flex flex-col justify-between shrink-0 hover:border-primary/40 transition-colors shadow-xl"
-              >
-                <div>
-                  <div className="w-full h-44 bg-[#171717] rounded-2xl mb-6 flex items-center justify-center border border-white/5 relative overflow-hidden">
-                    {cert.imageUrl ? (
-                      <img src={cert.imageUrl} alt={cert.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <Award className="w-12 h-12 text-primary" />
-                    )}
-                    <div className="absolute top-3 right-3 bg-black/60 px-2.5 py-1 rounded-full text-[10px] font-mono text-primary border border-white/10 backdrop-blur-md">
-                      Verified
+            {[...certificationsData, ...certificationsData].map((cert, index) => {
+              const resolvedUrl = resolveCertificateImageUrl(cert.imageUrl, cert.credentialUrl);
+              const canShowImage = Boolean(resolvedUrl) && !failedCertImages[resolvedUrl];
+
+              return (
+                <div
+                  key={`${cert.id}-${index}`}
+                  className="w-[320px] sm:w-[360px] bg-[#101010] border border-white/10 rounded-3xl p-6 flex flex-col justify-between shrink-0 hover:border-primary/40 transition-colors shadow-xl"
+                >
+                  <div>
+                    <div className="w-full h-44 bg-[#171717] rounded-2xl mb-6 flex items-center justify-center border border-white/5 relative overflow-hidden">
+                      {canShowImage ? (
+                        <img
+                          src={resolvedUrl}
+                          alt={cert.title}
+                          referrerPolicy="no-referrer"
+                          onError={() => setFailedCertImages((prev) => ({ ...prev, [resolvedUrl]: true }))}
+                          className="w-full h-full object-contain bg-black/40"
+                        />
+                      ) : (
+                        <Award className="w-12 h-12 text-primary" />
+                      )}
+                      <div className="absolute top-3 right-3 bg-black/60 px-2.5 py-1 rounded-full text-[10px] font-mono text-primary border border-white/10 backdrop-blur-md">
+                        Verified
+                      </div>
                     </div>
+                    <span className="text-xs font-mono text-primary/70 mb-1 block">Issued by {cert.issuer}</span>
+                    <h3 className="text-lg font-semibold text-[#E1E0CC] mb-2">{cert.title}</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm leading-relaxed mb-4">
+                      Professional certification demonstrating specialized technical competency and continuous learning.
+                    </p>
                   </div>
-                  <span className="text-xs font-mono text-primary/70 mb-1 block">Issued by {cert.issuer}</span>
-                  <h3 className="text-lg font-semibold text-[#E1E0CC] mb-2">{cert.title}</h3>
-                  <p className="text-gray-400 text-xs sm:text-sm leading-relaxed mb-4">
-                    Professional certification demonstrating specialized technical competency and continuous learning.
-                  </p>
+                  <div className="pt-4 border-t border-white/10 flex items-center justify-between text-xs">
+                    <span className="text-gray-500">{cert.date}</span>
+                    <a
+                      href={cert.credentialUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary font-semibold inline-flex items-center gap-1 hover:underline"
+                    >
+                      <span>View Certificate</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
                 </div>
-                <div className="pt-4 border-t border-white/10 flex items-center justify-between text-xs">
-                  <span className="text-gray-500">{cert.date}</span>
-                  <a
-                    href={cert.credentialUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary font-semibold inline-flex items-center gap-1 hover:underline"
-                  >
-                    <span>View Certificate</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </motion.div>
         </div>
       </section>
